@@ -66,7 +66,7 @@ Solution Explorer → Rechtsklick auf das WinForms-Projekt → Als Startprojekt 
 - Lösungsmethode auswählen
 - Solver starten und Metriken sowie Zielzustand ansehen
 
-## Hinweise zur Laufzeit
+#### Hinweise zur Laufzeit
 Die Laufzeit hängt stark von der gewählten Spielfeldgröße, der Heuristik, dem Suchverfahren und der konkreten Startkonfiguration ab.
 Das 8-Puzzle wird in der Regel sehr schnell gelöst.
 Beim 15-Puzzle können einfache Konfigurationen ebenfalls relativ schnell gelöst werden.
