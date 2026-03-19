@@ -1,10 +1,14 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 
 
 namespace nPuzzle.IDASolver
 {
     public class IDAStarSolver
     {
+        delegate int heuristic();
+        heuristic SelectedHeuristic;
+        
         // nPuzzle game instance
         NPuzzle game;
 
@@ -59,6 +63,16 @@ namespace nPuzzle.IDASolver
             this.game = game;
             board = game.Board.Clone() as byte[,];
 
+
+            // Here U can change heuristic for IDA*:
+            
+            //   comment row below & uncomment next row to use LC heuristic
+            SelectedHeuristic = heuristic_MD;
+           
+            //   comment row below & uncomment previous row to use MD heuristic
+            // SelectedHeuristic = heuristic_LC;
+
+
             // Reset metrics
             VisitedCounter = 0;
             SolutionNodeLevel = 0;
@@ -89,7 +103,7 @@ namespace nPuzzle.IDASolver
         public byte[,] Run()
         {
             // Start depth
-            depth_limit = heuristic_MDLC();
+            depth_limit = SelectedHeuristic();
 
             // Flag: loop result
             bool lresult;
@@ -128,7 +142,7 @@ namespace nPuzzle.IDASolver
             VisitedCounter++;
 
             // Calculate heuristic at current iteration board
-            int local_heuristic = heuristic_MDLC();
+            int local_heuristic = SelectedHeuristic();
 
             // Solution found
             if (local_heuristic == 0)
@@ -205,10 +219,10 @@ namespace nPuzzle.IDASolver
         }
 
         /// <summary>
-        /// Calculate heuristic based on Manhattan Distance + Linear Conflict
+        /// Calculate heuristic based on Manhattan Distance 
         /// </summary>
         /// <returns>Calculated heuristic on the current board</returns>
-        private int heuristic_MDLC()
+        private int heuristic_MD()
         {
             // Heuristic variable
             int _heuristic = 0;
@@ -224,7 +238,7 @@ namespace nPuzzle.IDASolver
                     // Note clalculate for null
                     if (_c_elem == 0) continue;
 
-                    // Calculation : board tile mus be a number in correct order 1,2,3...N,0
+                    // Calculation : board tile must be a number in correct order 1,2,3...N,0
                     int _c_goal = (_c_elem - 1) % board.GetLength(0);
                     int _r_goal = (_c_elem - 1) / board.GetLength(1);
                     _heuristic += Math.Abs(_c_goal - _c) + Math.Abs(_r_goal - _r);
@@ -234,5 +248,121 @@ namespace nPuzzle.IDASolver
             // Return calculated heuristic
             return _heuristic;
         }
+
+
+        /// <summary>
+        /// Calculate heuristic based on Linear Conflict
+        /// </summary>
+        /// <returns>Calculated heuristic on the specified board</returns>
+        private int LCH()
+        {
+            // Heuristic variable
+            int _heuristic = 0;
+
+            // Calculate
+
+            // Row linear conflicts
+            for (int _r = 0; _r < board.GetLength(1); _r++)
+            {
+                // List of tiles which in coflict
+                List<int> _cflt = new List<int>();
+
+                // Scan tuples in row _r for conflicts
+                for (int _c1 = 0; _c1 < board.GetLength(0) - 1; _c1++)
+                {
+                    // already in conflict - skip
+                    if (_cflt.Contains(_c1)) continue;
+
+                    // Skip the hole
+                    if (board[_c1, _r] == 0) continue;
+
+                    // Scan next tiles
+                    for (int _c2 = _c1 + 1; _c2 < board.GetLength(0); _c2++)
+                    {
+                        // already in conflict - skip
+                        if (_cflt.Contains(_c2)) continue;
+
+                        // get tile C1 position in goal state
+                        (int _c1_g, int _r1_g) =
+                            ((board[_c1, _r] - 1) % board.GetLength(0),
+                            (board[_c1, _r] - 1) / board.GetLength(1));
+
+                        // skip if another row
+                        if (_r1_g != _r) continue;
+
+                        // get tile C2 position in goal state
+                        (int _c2_g, int _r2_g) =
+                            ((board[_c2, _r] - 1) % board.GetLength(0),
+                            (board[_c2, _r] - 1) / board.GetLength(1));
+
+                        // skip if another row
+                        if (_r2_g != _r) continue;
+
+                        // check conflict condition
+                        if (_c2_g < _c1_g)
+                        {
+                            _heuristic += 2;
+                            _cflt.AddRange(new int[] { _c1, _c2 });
+                        }
+                    }
+                }
+            }
+
+            // Clolumn linear conflicts
+            for (int _c = 0; _c < board.GetLength(0); _c++)
+            {
+                // List of tiles which in coflict
+                List<int> _cflt = new List<int>();
+
+                // Scan tuples in column _c for conflicts
+                for (int _r1 = 0; _r1 < board.GetLength(1) - 1; _r1++)
+                {
+                    // already in conflict - skip
+                    if (_cflt.Contains(_r1)) continue;
+
+                    // Skip the hole
+                    if (board[_c, _r1] == 0) continue;
+
+                    // Scan next tiles
+                    for (int _r2 = _r1 + 1; _r2 < board.GetLength(1); _r2++)
+                    {
+                        // already in conflict - skip
+                        if (_cflt.Contains(_r2)) continue;
+
+                        // get tile R1 position in goal state
+                        (int _c1_g, int _r1_g) =
+                            ((board[_c, _r1] - 1) % board.GetLength(0),
+                            (board[_c, _r1] - 1) / board.GetLength(1));
+
+                        // skip if another column
+                        if (_c1_g != _c) continue;
+
+                        // get tile R2 position in goal state
+                        (int _c2_g, int _r2_g) =
+                            ((board[_c, _r2] - 1) % board.GetLength(0),
+                            (board[_c, _r2] - 1) / board.GetLength(1));
+
+                        // skip if another column
+                        if (_c2_g != _c) continue;
+
+                        // check conflict condition
+                        if (_r2_g < _r1_g)
+                        {
+                            _heuristic += 2;
+                            _cflt.AddRange(new int[] { _r1, _r2 });
+                        }
+                    }
+                }
+            }
+
+            // Return calculated heuristic
+            return _heuristic;
+        }
+
+        /// <summary>
+        /// Calculate heuristic based on Linear Conflict
+        /// </summary>
+        /// <returns>Calculated heuristic on the specified board</returns>
+        public int heuristic_LC() => LCH() + heuristic_MD();
     }
 }
